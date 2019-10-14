@@ -1,0 +1,4 @@
+/bin/
+
+# sbt specific
+.cache-main

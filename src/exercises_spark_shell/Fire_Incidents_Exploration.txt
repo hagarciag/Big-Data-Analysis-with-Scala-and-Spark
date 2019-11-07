@@ -1,9 +1,9 @@
-
-
+/*
 import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.StructField
 import org.apache.spark.sql.catalyst.ScalaReflection
 
-
+//If I change the Timestamp for String, it works
 case class Call(
 Call_Number : Int,
 Unit_ID : String,
@@ -42,8 +42,47 @@ RowID : String
 )
 val schema = ScalaReflection.schemaFor[Call].dataType.asInstanceOf[StructType]
 schema.printTreeString
+*/
+// Struct types directly
+import org.apache.spark.sql.types.{ StructField, StructType, StringType, IntegerType, BooleanType }
 
+val schema = StructType(Array(StructField("CallNumber", IntegerType, true),
+                     StructField("UnitID", StringType, true),
+                     StructField("IncidentNumber", IntegerType, true),
+                     StructField("CallType", StringType, true),                  
+                     StructField("CallDate", StringType, true),       
+                     StructField("WatchDate", StringType, true),       
+                     StructField("ReceivedDtTm", StringType, true),       
+                     StructField("EntryDtTm", StringType, true),       
+                     StructField("DispatchDtTm", StringType, true),       
+                     StructField("ResponseDtTm", StringType, true),       
+                     StructField("OnSceneDtTm", StringType, true),       
+                     StructField("TransportDtTm", StringType, true),                  
+                     StructField("HospitalDtTm", StringType, true),       
+                     StructField("CallFinalDisposition", StringType, true),       
+                     StructField("AvailableDtTm", StringType, true),       
+                     StructField("Address", StringType, true),       
+                     StructField("City", StringType, true),       
+                     StructField("ZipcodeofIncident", IntegerType, true),       
+                     StructField("Battalion", StringType, true),                 
+                     StructField("StationArea", StringType, true),       
+                     StructField("Box", StringType, true),       
+                     StructField("OriginalPriority", StringType, true),       
+                     StructField("Priority", StringType, true),       
+                     StructField("FinalPriority", IntegerType, true),       
+                     StructField("ALSUnit", BooleanType, true),       
+                     StructField("CallTypeGroup", StringType, true),
+                     StructField("NumberofAlarms", IntegerType, true),
+                     StructField("UnitType", StringType, true),
+                     StructField("Unitsequenceincalldispatch", IntegerType, true),
+                     StructField("FirePreventionDistrict", StringType, true),
+                     StructField("SupervisorDistrict", StringType, true),
+                     StructField("NeighborhoodDistrict", StringType, true),
+                     StructField("Location", StringType, true),
+                     StructField("RowID", StringType, true)))
+                     
 
+// Read as dataframe
 import org.apache.spark.sql.DataFrame
 
 val fireDF: DataFrame = spark.read.format("csv").schema(schema).option("header", true).load("D:\\Fire_Department_Calls_for_Service.csv")
@@ -51,3 +90,59 @@ val fireDF: DataFrame = spark.read.format("csv").schema(schema).option("header",
 fireDF.take(10).foreach(println)
 
 fireDF.printSchema()
+
+
+
+//////////////////////////////Q-1) How many different types of calls were made to the Fire Department?
+fireDF.select("CallType").show(5)
+
+// Add the .distinct() transformation to keep only distinct rows
+// The False below expands the ASCII column width to fit the full text in the output
+fireDF.select("CallType").distinct().show(5, false)
+
+
+
+//////////////////////////////Q-2) How many incidents of each call type were there?
+fireDF.groupBy("CallType").count.sort($"count".desc).show
+
+
+
+///////////////////////////////Q-3) How many years of Fire Service Calls is in the data file?
+import org.apache.spark.sql.functions
+
+val from_pattern1 = "MM/dd/yyyy"
+val to_pattern1 = "yyyy-MM-dd"
+
+val from_pattern2 = "MM/dd/yyyy hh:mm:ss aa"
+val to_pattern2 = "MM/dd/yyyy hh:mm:ss aa"
+
+// To introduce multiple lines of a command.
+:paste
+val fireTsDF = fireDF.withColumn("CallDateTS", unix_timestamp(fireDF("CallDate"), from_pattern1).cast("timestamp")).drop("CallDate") 
+  .withColumn("WatchDateTS", unix_timestamp(fireDF("WatchDate"), from_pattern1).cast("timestamp")) 
+  .drop("WatchDate") 
+  .withColumn("ReceivedDtTmTS", unix_timestamp(fireDF("ReceivedDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("ReceivedDtTm") 
+  .withColumn("EntryDtTmTS", unix_timestamp(fireDF("EntryDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("EntryDtTm") 
+  .withColumn("DispatchDtTmTS", unix_timestamp(fireDF("DispatchDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("DispatchDtTm") 
+  .withColumn("ResponseDtTmTS", unix_timestamp(fireDF("ResponseDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("ResponseDtTm") 
+  .withColumn("OnSceneDtTmTS", unix_timestamp(fireDF("OnSceneDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("OnSceneDtTm") 
+  .withColumn("TransportDtTmTS", unix_timestamp(fireDF("TransportDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("TransportDtTm") 
+  .withColumn("HospitalDtTmTS", unix_timestamp(fireDF("HospitalDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("HospitalDtTm") 
+  .withColumn("AvailableDtTmTS", unix_timestamp(fireDF("AvailableDtTm"), from_pattern2).cast("timestamp")) 
+  .drop("AvailableDtTm")
+  
+fireTsDF.select(year($"CallDateTS")).distinct().orderBy($"year(CallDateTS)".desc).show()
+
+/////////////////////////////////Q-4) How many service calls were logged in the past 7 days?
+
+fireTsDF.agg(max("CallDateTS")).show
+
+fireTsDF.select("CallDateTS").orderBy($"CallDateTS".desc).show(100)
+

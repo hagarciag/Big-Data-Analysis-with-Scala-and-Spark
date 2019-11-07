@@ -1,0 +1,53 @@
+
+
+import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.catalyst.ScalaReflection
+
+
+case class Call(
+Call_Number : Int,
+Unit_ID : String,
+Incident_Number : Int,
+Call_Type : String,
+Call_Date : java.sql.Timestamp,
+Watch_Date : java.sql.Timestamp,
+Received_DtTm : java.sql.Timestamp,
+Entry_DtTm : java.sql.Timestamp,
+Dispatch_DtTm : java.sql.Timestamp,
+Response_DtTm : java.sql.Timestamp,
+On_Scene_DtTm : java.sql.Timestamp,
+Transport_DtTm : java.sql.Timestamp,
+Hospital_DtTm : java.sql.Timestamp,
+Call_Final_Disposition : String,
+Available_DtTm : java.sql.Timestamp,
+Address : String,
+City : String,
+Zipcode_of_Incident : Int,
+Battalion : String,
+Station_Area : Int,
+Box : Int,
+Original_Priority : Int,
+Priority : Int,
+Final_Priority : Int,
+ALS_Unit : Boolean,
+Call_Type_Group : String,
+Number_of_Alarms : Int,
+Unit_Type : String,
+Unit_sequence_in_call_dispatch : Int,
+Fire_Prevention_District : Int,
+Supervisor_District : Int,
+Neighborhood_District : String,
+Location : String,
+RowID : String
+)
+val schema = ScalaReflection.schemaFor[Call].dataType.asInstanceOf[StructType]
+schema.printTreeString
+
+
+import org.apache.spark.sql.DataFrame
+
+val fireDF: DataFrame = spark.read.format("csv").schema(schema).option("header", true).load("D:\\Fire_Department_Calls_for_Service.csv")
+
+fireDF.take(10).foreach(println)
+
+fireDF.printSchema()

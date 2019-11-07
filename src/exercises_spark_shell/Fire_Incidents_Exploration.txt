@@ -146,3 +146,6 @@ fireTsDF.agg(max("CallDateTS")).show
 
 fireTsDF.select("CallDateTS").orderBy($"CallDateTS".desc).show(100)
 
+fireTsDF.select("CallDateTS").filter($"CallDateTS" > unix_timestamp(lit("2016-04-03"), "yyyy-MM-dd").cast("timestamp")).count()
+
+

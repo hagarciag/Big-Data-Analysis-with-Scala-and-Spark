@@ -144,8 +144,39 @@ fireTsDF.select(year($"CallDateTS")).distinct().orderBy($"year(CallDateTS)".desc
 
 fireTsDF.agg(max("CallDateTS")).show
 
-fireTsDF.select("CallDateTS").orderBy($"CallDateTS".desc).show(100)
+fireTsDF.select("CallDateTS").orderBy($"CallDateTS".desc).show(10)
 
-fireTsDF.select("CallDateTS").filter($"CallDateTS" > unix_timestamp(lit("2016-04-03"), "yyyy-MM-dd").cast("timestamp")).count()
+fireTsDF.select("CallDateTS").filter($"CallDateTS" > unix_timestamp(lit("2016-04-03"), "yyyy-MM-dd").cast("timestamp")).groupBy("CallDateTS").count().orderBy($"count".desc).show()
 
 
+
+/////////////////////////  Memory, Caching and write to Parquet  ///////////////////////////////
+
+fireTsDF.rdd.getNumPartitions
+
+// There sis not limit of partitions?
+fireTsDF.repartition(6).createOrReplaceTempView("fireServiceVIEW");
+
+spark.catalog.cacheTable("fireServiceVIEW")
+
+# Call .count() to materialize the cache
+spark.table("fireServiceVIEW").count()
+
+val fireServiceDF = spark.table("fireServiceVIEW")
+
+# Note that the full scan + count in memory takes < 1 second!
+fireServiceDF.count()
+
+spark.catalog.isCached("fireServiceVIEW")
+
+%fs ls /tmp/
+
+fireServiceDF.write.format("parquet").save("/tmp/fireServiceParquet/")
+
+%fs ls /tmp/fireServiceParquet/
+
+val tempDF = spark.read.parquet("/tmp/fireServiceParquet/")
+
+//import sys.process._
+//"ls /tmp/fireServiceParquet/" !
+//val sqlContext: SQLContext = new SQLContext(sc)

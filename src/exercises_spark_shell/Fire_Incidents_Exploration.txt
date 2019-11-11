@@ -85,7 +85,21 @@ val schema = StructType(Array(StructField("CallNumber", IntegerType, true),
 // Read as dataframe
 import org.apache.spark.sql.DataFrame
 
+// We only have 4 cores, so 200 partitons is not something optimal as a core can proccess only one partiton at a time. It is better a 12 partitions,
+// so every core executes only 3 partitions intead of 50 as it would be leaving the default parameter. 
+spark.conf.get("spark.sql.shuffle.partitions")
+
+spark.conf.set("spark.sql.shuffle.partitions", 12)
+
+// The processor has only four cores(logical cores), and as the partiton should be <=200MB and a multiple of the cores (4), so 155MB es less than
+// 200MB. Besides when 1804MB is divided by 155MB, it equals aproximately to 12, which is a multiple of 4
+spark.conf.set("spark.sql.files.maxPartitionBytes", 155*1024*1024)
+
 val fireDF: DataFrame = spark.read.format("csv").schema(schema).option("header", true).load("D:\\Fire_Department_Calls_for_Service.csv")
+
+fireDF.rdd.getNumPartitions
+fireDF.rdd.partitions.size
+
 
 fireDF.take(10).foreach(println)
 
@@ -117,8 +131,9 @@ val from_pattern2 = "MM/dd/yyyy hh:mm:ss aa"
 val to_pattern2 = "MM/dd/yyyy hh:mm:ss aa"
 
 // To introduce multiple lines of a command.
-:paste
-val fireTsDF = fireDF.withColumn("CallDateTS", unix_timestamp(fireDF("CallDate"), from_pattern1).cast("timestamp")).drop("CallDate") 
+// :paste
+val fireTsDF =  {
+fireDF.withColumn("CallDateTS", unix_timestamp(fireDF("CallDate"), from_pattern1).cast("timestamp")).drop("CallDate") 
   .withColumn("WatchDateTS", unix_timestamp(fireDF("WatchDate"), from_pattern1).cast("timestamp")) 
   .drop("WatchDate") 
   .withColumn("ReceivedDtTmTS", unix_timestamp(fireDF("ReceivedDtTm"), from_pattern2).cast("timestamp")) 
@@ -137,7 +152,9 @@ val fireTsDF = fireDF.withColumn("CallDateTS", unix_timestamp(fireDF("CallDate")
   .drop("HospitalDtTm") 
   .withColumn("AvailableDtTmTS", unix_timestamp(fireDF("AvailableDtTm"), from_pattern2).cast("timestamp")) 
   .drop("AvailableDtTm")
-  
+} 
+
+
 fireTsDF.select(year($"CallDateTS")).distinct().orderBy($"year(CallDateTS)".desc).show()
 
 /////////////////////////////////Q-4) How many service calls were logged in the past 7 days?
@@ -146,37 +163,100 @@ fireTsDF.agg(max("CallDateTS")).show
 
 fireTsDF.select("CallDateTS").orderBy($"CallDateTS".desc).show(10)
 
-fireTsDF.select("CallDateTS").filter($"CallDateTS" > unix_timestamp(lit("2016-04-03"), "yyyy-MM-dd").cast("timestamp")).groupBy("CallDateTS").count().orderBy($"count".desc).show()
+fireTsDF.select("CallDateTS").filter($"CallDateTS" > unix_timestamp(lit("2019-10-15"), "yyyy-MM-dd").cast("timestamp")).groupBy("CallDateTS").count().orderBy($"count".desc).show()
 
 
 
 /////////////////////////  Memory, Caching and write to Parquet  ///////////////////////////////
 
-fireTsDF.rdd.getNumPartitions
+//fireTsDF.rdd.getNumPartitions
 
-// There sis not limit of partitions?
-fireTsDF.repartition(6).createOrReplaceTempView("fireServiceVIEW");
+// There is not limit of partitions?
+//fireTsDF.repartition(6).createOrReplaceTempView("fireServiceVIEW");
+fireTsDF.createOrReplaceTempView("fireServiceVIEW");
 
 spark.catalog.cacheTable("fireServiceVIEW")
 
-# Call .count() to materialize the cache
+// Call .count() to materialize the cache
 spark.table("fireServiceVIEW").count()
 
 val fireServiceDF = spark.table("fireServiceVIEW")
 
-# Note that the full scan + count in memory takes < 1 second!
+// Note that the full scan + count in memory takes < 1 second!
 fireServiceDF.count()
 
 spark.catalog.isCached("fireServiceVIEW")
 
-%fs ls /tmp/
+//%fs ls /tmp/
 
-fireServiceDF.write.format("parquet").save("/tmp/fireServiceParquet/")
+fireServiceDF.filter($"CallDateTS" > unix_timestamp(lit("2019-11-08"), "yyyy-MM-dd").cast("timestamp")).write.format("parquet").mode("overwrite").save("/tmp/fireServiceParquet/")
 
-%fs ls /tmp/fireServiceParquet/
+//%fs ls /tmp/fireServiceParquet/
 
 val tempDF = spark.read.parquet("/tmp/fireServiceParquet/")
 
 //import sys.process._
 //"ls /tmp/fireServiceParquet/" !
 //val sqlContext: SQLContext = new SQLContext(sc)
+
+tempDF.limit(2)
+
+spark.sql("""SELECT count(*) FROM fireServiceVIEW""").show
+
+///////////////////////////////////Q-5) Which neighborhood in SF generated the most calls last year?
+
+spark.sql("""SELECT NeighborhoodDistrict, count(NeighborhoodDistrict) AS Neighborhood_Count
+				FROM fireServiceVIEW 
+				WHERE year(CallDateTS) == '2015'
+				GROUP BY NeighborhoodDistrict
+				ORDER BY Neighborhood_Count DESC LIMIT 15
+		  """).show
+
+spark.sql("""SELECT NeighborhoodDistrict, count(NeighborhoodDistrict) AS Neighborhood_Count
+				FROM fireServiceVIEW 
+				WHERE year(CallDateTS) == '2015'
+				GROUP BY NeighborhoodDistrict
+				ORDER BY Neighborhood_Count DESC LIMIT 15
+		  """).show
+
+
+spark.sql("""DESC fireServiceVIEW
+		  """).show
+
+
+// Its posible to know the explain plan
+spark.sql("""SELECT NeighborhoodDistrict, count(NeighborhoodDistrict) AS Neighborhood_Count
+				FROM fireServiceVIEW 
+				WHERE year(CallDateTS) == '2015'
+				GROUP BY NeighborhoodDistrict
+				ORDER BY Neighborhood_Count DESC LIMIT 15
+		  """).explain(true)
+
+//////////////////////////////Q-6) What was the primary non-medical reason most people called the fire department from the Tenderloin last year?
+
+spark.conf.set("spark.sql.files.maxPartitionBytes", 45*1024*1024)
+
+val incidentsDF = spark.read.option("header",true).option("inferSchema",true).csv(path="D:\\Fire_Incidents.csv").withColumnRenamed("Incident Number", "IncidentNumber")//.cache()
+
+fireDF.rdd.getNumPartitions
+
+incidentsDF.printSchema()
+
+incidentsDF.count()
+
+incidentsDF.limit(3).show
+
+val joinedDF = fireServiceDF.join(incidentsDF, fireServiceDF("IncidentNumber") === incidentsDF("IncidentNumber"))
+
+joinedDF.limit(3).show
+
+joinedDF.count()
+
+joinedDF.filter(year($"CallDateTS") === "2015").filter($"NeighborhoodDistrict" === "Tenderloin").count()
+
+
+//////////////// Until here to avoid memory errors
+joinedDF.filter(year($"CallDateTS") === "2015").filter($"NeighborhoodDistrict" === "Tenderloin").groupBy("Primary Situation").count().orderBy(desc("count")).limit(10).show
+
+joinedDF.filter(year($"CallDateTS") === "2015").filter($"NeighborhoodDistrict" === "Russian Hill").groupBy("Primary Situation").count().orderBy(desc("count")).limit(10).show
+

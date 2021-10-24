@@ -1,0 +1,13 @@
+package week1
+
+object Lecture_03_Latency {
+
+/*
+Latency_spark-1-3.pdf
+
+Reading/writing to disk: lOOlx slower than in-memory
+Network communication: 1,000,000x slower than in-memory
+
+
+*/
+}

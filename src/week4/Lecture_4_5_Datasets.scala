@@ -123,7 +123,7 @@ object Datasets {
    * an iterator containing elemtns of an arbitrary type, which will be return as a new Dataset
    * 
    * Note: at the time of writing, KeyValueGroupedDataset is marked as @Experimental
-   * and @Evolving. Therefore, expect this API to fluctuate-it¿s likely that new
+   * and @Evolving. Therefore, expect this API to fluctuate-itï¿½s likely that new
    * aggregation operations will be added and others could be canged.
    * 
    * If you glance aroud the Dataset API docs, you might notice that Datasets
@@ -269,7 +269,7 @@ object Datasets {
     print("\n\nabos:\n")
     print(abosAgain.foreach(println))
     
-    
+   
     val keyValuesDF = List((3,"Me"),(1,"Thi"),(2,"Se"),(3,"ssa"),(3,"-"),(2,"cre"),(2,"t"))
                         .toDF
     val keyValuesDS = keyValuesDF.map(row => row(0).asInstanceOf[Int] + 1)
@@ -287,7 +287,7 @@ object Datasets {
     keyValuesDS1.groupByKey(p=>p._1)
             .mapGroups((k,vs)=>(k,vs.foldLeft("")((acc, p)=>acc + p._2)))
             .sort($"_1").show()
-            
+           
     // Better option
     keyValuesDS1.groupByKey(p=>p._1)
             .mapValues(p => p._1)
@@ -307,10 +307,10 @@ object Datasets {
     override def bufferEncoder: Encoder[String]=Encoders.STRING
     override def outputEncoder: Encoder[String]=Encoders.STRING
     }.toColumn
-    
+  
     keyValuesDS1.groupByKey(pair => pair._1)
       .agg(strConcat.as[String]).show            
-            
+    
             
   }
 }

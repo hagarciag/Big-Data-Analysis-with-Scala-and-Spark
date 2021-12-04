@@ -265,7 +265,7 @@ object Datasets {
     val abosAgain = abos.map{      row => (row(0).asInstanceOf[Int])    }
     
     //val abosAgain = abos.map((a: Row) => a.getAs[Seq[Row]](1).map{case Row(k: String, v: String) => (k, v)})
-    
+
     print("\n\nabos:\n")
     print(abosAgain.foreach(println))
     
@@ -282,6 +282,8 @@ object Datasets {
     
     val keyValues = List((3,"Me"),(1,"Thi"),(2,"Se"),(3,"ssa"),(3,"-"),(2,"cre"),(2,"t"))
     val keyValuesDS1 = keyValues.toDS
+
+    /*keyValuesDS1.groupByKey(l => l._1).agg(avg($"value").as[Double])*/
     
     // Poor performance for shuffling
     keyValuesDS1.groupByKey(p=>p._1)
@@ -290,9 +292,9 @@ object Datasets {
            
     // Better option
     keyValuesDS1.groupByKey(p=>p._1)
-            .mapValues(p => p._1)
+            .mapValues(p => p._2)
             .reduceGroups((acc, str)=>acc + str).show
-            
+
     // Aggregator option
     // Step 1: what should Aggregator's type parameters be?
     // Step 2: what should the rest of types be?
@@ -311,6 +313,6 @@ object Datasets {
     keyValuesDS1.groupByKey(pair => pair._1)
       .agg(strConcat.as[String]).show            
     
-            
+  // joinWith returns a Dataset, the standard join returns a DataFrame
   }
 }

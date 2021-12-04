@@ -94,10 +94,19 @@ object SparkSQL {
     //Create DataFrame from existing RDD without explicit schema by toDF.
     val tupleDF = tupleRDD.toDF("word")
 
-    print("\n\nRDD to DataFrame infering schema:\n")
+    print("\n\nRDD to DataFrame inferring schema:\n")
     print(tupleDF.show(5))
 
-    //////////SCHEMA INFERED FROM CASE CLASS///////////////////////////////
+    /////////INFER SCHEMA FROM RDD 2///////////////////////////////////
+    val tupleRDD2 = sc.parallelize(List(("hello",1), ("world",2), ("good",3), ("morning",4)))
+
+    //Create DataFrame from existing RDD without explicit schema by toDF.
+    val tupleDF2 = tupleRDD2.toDF("word", "Value")
+
+    print("\n\nRDD to DataFrame infering schema:\n")
+    print(tupleDF2.show(5))
+
+    //////////SCHEMA INFERRED FROM CASE CLASS///////////////////////////////
     val purchases = List(
       CFFPurchase(100, "Geneva", 22.25),
       CFFPurchase(300, "Zurich", 42.10),

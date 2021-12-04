@@ -140,8 +140,11 @@ object Dataframes_2 {
     
     print("\n\nabosDF:\n")
     abosDF.show()
-    
-    print("\n\nabosDF.collect.foreach(println):\n")  
+
+    print("\n\nabosDF.collect.toList:\n")
+    abosDF.collect.toList
+
+    print("\n\nabosDF.collect.foreach(println):\n")
     abosDF.collect.foreach(println)
 
     print("\n\nabosDF.take(2).foreach(println):\n")  
